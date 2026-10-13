@@ -37,20 +37,24 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 🔗 TEMPELKAN LINK CSV PUBLIK GOOGLE SHEETS ANDA DI SINI
-GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCej3eSXYdOZDBh0hbcFpEwiLTY6wG-RxtnCmO4xKlEJDkr5EnYMSGr0oGMbPsrg/pub?gid=1910551678&single=true&output=csv"
+# 🔗 MASUKKAN LINK CSV PUBLIK GOOGLE SHEETS ANDA DI BAWAH INI
+GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1MxWz6wuBynEdhRlrGlH-z3-hCjCTk8DA/edit?gid=880433697#gid=880433697"
 
-@st.cache_data(ttl=60) # Data akan otomatis diperbarui setiap 60 detik jika ada perubahan di Sheets
+# Jika link masih berbentuk link edit biasa, ubah otomatis ke format export csv
+if "/edit" in GOOGLE_SHEET_CSV_URL:
+    base_url = GOOGLE_SHEET_CSV_URL.split("/edit")[0]
+    gid = "0"
+    if "gid=" in GOOGLE_SHEET_CSV_URL:
+        gid = GOOGLE_SHEET_CSV_URL.split("gid=")[1].split("#")[0]
+    GOOGLE_SHEET_CSV_URL = f"{base_url}/export?format=csv&gid={gid}"
+
+@st.cache_data(ttl=60)
 def load_data(url):
-    return pd.read_csv(url, header=None)
+    return pd.read_csv(url, header=None, dtype=str) # Baca semua sebagai string agar aman dari error konversi
 
 months_names = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES']
 
 try:
-    if "MASUKKAN_LINK" in GOOGLE_SHEET_CSV_URL:
-        st.warning("⚠️ Silakan masukkan tautan (link) CSV Google Sheets Anda ke dalam variabel `GOOGLE_SHEET_CSV_URL` di dalam file `app.py`.")
-        st.stop()
-        
     df_raw = load_data(GOOGLE_SHEET_CSV_URL)
     
     # Parsing 26 Program dari baris 5 s.d 30 (index 4 s.d 29)
@@ -75,8 +79,8 @@ try:
                 tot_act = 0
                 col_idx = 2
                 for m in range(12):
-                    p_val = float(r.iloc[col_idx]) if pd.notna(r.iloc[col_idx]) else 0
-                    a_val = float(r.iloc[col_idx+1]) if pd.notna(r.iloc[col_idx+1]) else 0
+                    p_val = float(r.iloc[col_idx]) if pd.notna(r.iloc[col_idx]) and str(r.iloc[col_idx]).strip() != '' else 0
+                    a_val = float(r.iloc[col_idx+1]) if pd.notna(r.iloc[col_idx+1]) and str(r.iloc[col_idx+1]).strip() != '' else 0
                     monthly_pairs.append({'plan': p_val, 'act': a_val})
                     tot_plan += p_val
                     tot_act += a_val
@@ -97,7 +101,11 @@ try:
                     status = 'BELUM'
                     count_belum += 1
 
-                biaya = float(r.iloc[28]) if len(r) > 28 and pd.notna(r.iloc[28]) else 0
+                # Bersihkan format string biaya (misal: "Rp 8.750.000" atau "8750000" atau "-")
+                biaya_raw = str(r.iloc[28]) if len(r) > 28 and pd.notna(r.iloc[28]) else "0"
+                biaya_clean = ''.join(filter(str.isdigit, biaya_raw))
+                biaya = float(biaya_clean) if biaya_clean != '' else 0
+                
                 total_budget_sum += biaya
                 pic = str(r.iloc[29]) if len(r) > 29 and pd.notna(r.iloc[29]) else '-'
 
@@ -235,4 +243,4 @@ try:
     st.dataframe(pd.DataFrame(matrix_rows), use_container_width=True, hide_index=True)
 
 except Exception as e:
-    st.error(f"Gagal memuat data dari Google Sheets. Pastikan link CSV publik Anda sudah benar. Detail error: {e}")
+    st.error(f"Gagal memuat data dari Google Sheets. Detail error: {e}")
