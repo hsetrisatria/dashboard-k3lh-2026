@@ -40,7 +40,7 @@ st.markdown("""
 # 🔗 MASUKKAN LINK CSV PUBLIK GOOGLE SHEETS ANDA DI BAWAH INI
 GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1MxWz6wuBynEdhRlrGlH-z3-hCjCTk8DA/edit?gid=880433697#gid=880433697"
 
-# Jika link masih berbentuk link edit biasa, ubah otomatis ke format export csv
+# Konversi link edit otomatis ke format export csv
 if "/edit" in GOOGLE_SHEET_CSV_URL:
     base_url = GOOGLE_SHEET_CSV_URL.split("/edit")[0]
     gid = "0"
@@ -50,14 +50,31 @@ if "/edit" in GOOGLE_SHEET_CSV_URL:
 
 @st.cache_data(ttl=60)
 def load_data(url):
-    return pd.read_csv(url, header=None, dtype=str) # Baca semua sebagai string agar aman dari error konversi
+    return pd.read_csv(url, header=None, dtype=str)
+
+# Fungsi helper aman untuk mengubah nilai sel menjadi float
+def safe_float(val):
+    if pd.isna(val) or val is None:
+        return 0.0
+    val_str = str(val).strip()
+    # Abaikan jika mengandung error excel atau kosong
+    if val_str in ['', 'nan', 'NaN', '#DIV/0!', '#N/A', '#VALUE!', '#REF!']:
+        return 0.0
+    try:
+        return float(val_str)
+    except ValueError:
+        # Jika ada string teks lain (misal mata uang), ambil digit angkanya saja
+        digits = ''.join(filter(lambda c: c.isdigit() or c == '.', val_str))
+        try:
+            return float(digits) if digits != '' else 0.0
+        except ValueError:
+            return 0.0
 
 months_names = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES']
 
 try:
     df_raw = load_data(GOOGLE_SHEET_CSV_URL)
     
-    # Parsing 26 Program dari baris 5 s.d 30 (index 4 s.d 29)
     programs_data = []
     monthly_plan_sum = [0] * 12
     monthly_act_sum = [0] * 12
@@ -67,6 +84,7 @@ try:
     total_budget_sum = 0
     total_sum_pct = 0
 
+    # Parsing 26 Program dari baris 5 s.d 30 (index 4 s.d 29)
     for i in range(4, 30):
         if i < len(df_raw):
             r = df_raw.iloc[i]
@@ -79,8 +97,8 @@ try:
                 tot_act = 0
                 col_idx = 2
                 for m in range(12):
-                    p_val = float(r.iloc[col_idx]) if pd.notna(r.iloc[col_idx]) and str(r.iloc[col_idx]).strip() != '' else 0
-                    a_val = float(r.iloc[col_idx+1]) if pd.notna(r.iloc[col_idx+1]) and str(r.iloc[col_idx+1]).strip() != '' else 0
+                    p_val = safe_float(r.iloc[col_idx] if col_idx < len(r) else 0)
+                    a_val = safe_float(r.iloc[col_idx+1] if (col_idx+1) < len(r) else 0)
                     monthly_pairs.append({'plan': p_val, 'act': a_val})
                     tot_plan += p_val
                     tot_act += a_val
@@ -101,11 +119,7 @@ try:
                     status = 'BELUM'
                     count_belum += 1
 
-                # Bersihkan format string biaya (misal: "Rp 8.750.000" atau "8750000" atau "-")
-                biaya_raw = str(r.iloc[28]) if len(r) > 28 and pd.notna(r.iloc[28]) else "0"
-                biaya_clean = ''.join(filter(str.isdigit, biaya_raw))
-                biaya = float(biaya_clean) if biaya_clean != '' else 0
-                
+                biaya = safe_float(r.iloc[28] if len(r) > 28 else 0)
                 total_budget_sum += biaya
                 pic = str(r.iloc[29]) if len(r) > 29 and pd.notna(r.iloc[29]) else '-'
 
