@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Styling Tema Gelap (Dark Mode CSS persis seperti HTML)
+# Styling Tema Gelap (Dark Mode CSS persis seperti tampilan HTML)
 st.markdown("""
     <style>
     .main { background-color: #0b0f19; color: #f8fafc; }
@@ -89,7 +89,7 @@ try:
     total_budget_sum = 0.0
     total_sum_pct = 0.0
 
-    # Parsing 26 Program persis dari baris 5 s.d 30 (index 4 s.d 29)
+    # Parsing 26 Program dari baris ke-5 s.d ke-30 (index 4 s.d 29)
     for i in range(4, 30):
         if i < len(df_raw):
             r = df_raw.iloc[i]
@@ -124,6 +124,7 @@ try:
                     status = 'BELUM'
                     count_belum += 1
 
+                # Kolom AC (index 28) untuk Biaya dan Kolom AD (index 29) untuk PIC
                 biaya = safe_float(r.iloc[28] if len(r) > 28 else 0)
                 total_budget_sum += biaya
                 pic = str(r.iloc[29]) if len(r) > 29 and pd.notna(r.iloc[29]) else '-'
