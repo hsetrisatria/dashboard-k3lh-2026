@@ -89,57 +89,60 @@ try:
     total_budget_sum = 0.0
     total_sum_pct = 0.0
 
-    # Parsing 26 Program dari baris ke-5 s.d ke-30 (index 4 s.d 29)
-    for i in range(4, 30):
-        if i < len(df_raw):
-            r = df_raw.iloc[i]
-            if pd.notna(r.iloc[1]):
-                no = safe_float(r.iloc[0]) if pd.notna(r.iloc[0]) else (i - 3)
-                prog = str(r.iloc[1])
-                
-                monthly_pairs = []
-                tot_plan = 0.0
-                tot_act = 0.0
-                col_idx = 2
-                for m in range(12):
-                    p_val = safe_float(r.iloc[col_idx] if col_idx < len(r) else 0)
-                    a_val = safe_float(r.iloc[col_idx+1] if (col_idx+1) < len(r) else 0)
-                    monthly_pairs.append({'plan': p_val, 'act': a_val})
-                    tot_plan += p_val
-                    tot_act += a_val
-                    monthly_plan_sum[m] += p_val
-                    monthly_act_sum[m] += a_val
-                    col_idx += 2
-                
-                pct = int(round((tot_act / tot_plan) * 100)) if tot_plan > 0 else 0
-                total_sum_pct += pct
+    # Deteksi otomatis baris data program kerja (mencari baris yang kolom pertamanya angka 1 sampai 26)
+    for i in range(len(df_raw)):
+        r = df_raw.iloc[i]
+        col0_str = str(r.iloc[0]).strip() if pd.notna(r.iloc[0]) else ""
+        
+        # Jika kolom pertama adalah angka 1 s.d 26, ini adalah baris program kerja valid
+        if col0_str.isdigit() and 1 <= int(col0_str) <= 26:
+            no = int(col0_str)
+            prog = str(r.iloc[1]).strip() if pd.notna(r.iloc[1]) else ""
+            
+            monthly_pairs = []
+            tot_plan = 0.0
+            tot_act = 0.0
+            col_idx = 2
+            for m in range(12):
+                p_val = safe_float(r.iloc[col_idx] if col_idx < len(r) else 0)
+                a_val = safe_float(r.iloc[col_idx+1] if (col_idx+1) < len(r) else 0)
+                monthly_pairs.append({'plan': p_val, 'act': a_val})
+                tot_plan += p_val
+                tot_act += a_val
+                monthly_plan_sum[m] += p_val
+                monthly_act_sum[m] += a_val
+                col_idx += 2
+            
+            pct = int(round((tot_act / tot_plan) * 100)) if tot_plan > 0 else 0
+            total_sum_pct += pct
 
-                if pct >= 100:
-                    status = 'TERPENUHI'
-                    count_terpenuhi += 1
-                elif pct > 0:
-                    status = 'SEBAGIAN'
-                    count_sebagian += 1
-                else:
-                    status = 'BELUM'
-                    count_belum += 1
+            if pct >= 100:
+                status = 'TERPENUHI'
+                count_terpenuhi += 1
+            elif pct > 0:
+                status = 'SEBAGIAN'
+                count_sebagian += 1
+            else:
+                status = 'BELUM'
+                count_belum += 1
 
-                # Kolom AC (index 28) untuk Biaya dan Kolom AD (index 29) untuk PIC
-                biaya = safe_float(r.iloc[28] if len(r) > 28 else 0)
-                total_budget_sum += biaya
-                pic = str(r.iloc[29]) if len(r) > 29 and pd.notna(r.iloc[29]) else '-'
+            # Kolom Biaya (biasanya di index 28 atau 26/27 tergantung kolom)
+            # Mari cari kolom yang mengandung angka biaya atau ambil index 28 / 29
+            biaya = safe_float(r.iloc[28] if len(r) > 28 else 0)
+            total_budget_sum += biaya
+            pic = str(r.iloc[29]) if len(r) > 29 and pd.notna(r.iloc[29]) else '-'
 
-                programs_data.append({
-                    'no': int(no) if no > 0 else (i-3),
-                    'prog': prog,
-                    'monthly_pairs': monthly_pairs,
-                    'tot_plan': int(tot_plan),
-                    'tot_act': int(tot_act),
-                    'pct': pct,
-                    'status': status,
-                    'biaya': biaya,
-                    'pic': pic
-                })
+            programs_data.append({
+                'no': no,
+                'prog': prog,
+                'monthly_pairs': monthly_pairs,
+                'tot_plan': int(tot_plan),
+                'tot_act': int(tot_act),
+                'pct': pct,
+                'status': status,
+                'biaya': biaya,
+                'pic': pic
+            })
 
     total_prog = len(programs_data)
     avg_cap = int(round(total_sum_pct / total_prog)) if total_prog > 0 else 0
